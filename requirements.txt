@@ -2,6 +2,7 @@ fastapi>=0.111.0
 sqlalchemy[asyncio]>=2.0.30
 asyncpg>=0.29.0
 pydantic>=2.7.4
+pydantic-settings>=2.3.4
 PyMuPDF>=1.24.5
 openai>=1.35.3
 streamlit>=1.35.0
