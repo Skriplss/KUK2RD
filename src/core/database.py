@@ -24,11 +24,23 @@ class KnowledgeObject(Base):
     data: Mapped[dict] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String, default="PENDING") # PENDING / APPROVED
 
+import asyncio
+
 async def init_db():
-    async with engine.begin() as conn:
-        logger.info("Initializing database schema...")
-        await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database schema initialized.")
+    retries = 5
+    for i in range(retries):
+        try:
+            async with engine.begin() as conn:
+                logger.info("Initializing database schema...")
+                await conn.run_sync(Base.metadata.create_all)
+                logger.info("Database schema initialized.")
+            return
+        except Exception as e:
+            logger.warning(f"Database connection failed (attempt {i+1}/{retries}): {e}")
+            if i == retries - 1:
+                logger.error("Failed to connect to the database after multiple retries.")
+                raise
+            await asyncio.sleep(2)
 
 async def get_db():
     async with AsyncSessionLocal() as session:
