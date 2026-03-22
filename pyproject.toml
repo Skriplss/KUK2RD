@@ -21,6 +21,7 @@ dependencies = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.5",
     "pandas-stubs~=2.3.3",
+    "python-docx>=1.2.0",
 ]
 
 [build-system]
