@@ -50,6 +50,7 @@ async def upload_document(
                     obj["metadata"] = {}
                 obj["metadata"]["source_file"] = file.filename
                 obj["metadata"]["source_chunk_idx"] = idx
+                obj["metadata"]["source_text"] = chunk
                 
                 # Create Database entity
                 db_obj = KnowledgeObject(
