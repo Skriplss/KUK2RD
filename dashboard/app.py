@@ -1,7 +1,7 @@
 import streamlit as st
 import asyncio
 import pandas as pd
-from src.services.parser import PDFParser
+from src.services.parser import DocumentParser
 from src.services.interpreter import extract_knowledge_from_chunk
 from src.services.validator import Validator
 from src.core.database import init_db, AsyncSessionLocal, KnowledgeObject
@@ -32,15 +32,20 @@ async def save_approved_objects(approved_items: list):
             session.add(db_obj)
         await session.commit()
 
-async def process_pdf_workflow(file_bytes: bytes, progress_bar):
+async def process_pdf_workflow(file_bytes: bytes, progress_bar, file_ext: str):
     try:
-        text = PDFParser.extract_text_from_pdf(file_bytes)
+        if file_ext == "pdf":
+            text = DocumentParser.extract_text_from_pdf(file_bytes)
+        elif file_ext == "docx":
+            text = DocumentParser.extract_text_from_docx(file_bytes)
+        else:
+            return []
     except Exception as e:
-        logger.error(f"Error analyzing PDF: {e}")
-        st.error(f"Chyba pri čítaní PDF: {e}")
+        logger.error(f"Error analyzing document: {e}")
+        st.error(f"Chyba pri čítaní dokumentu: {e}")
         return []
 
-    chunks = PDFParser.chunk_text(text)
+    chunks = DocumentParser.chunk_text(text)
     st.info(f"Sémantické rozdelenie textu na {len(chunks)} odsekových blokov. Spúšťa sa AI extrakcia...")
     
     all_extracted = []
@@ -54,16 +59,17 @@ async def process_pdf_workflow(file_bytes: bytes, progress_bar):
     st.success("Extrakcia úspešne dokončená.")
     return all_extracted
 
-uploaded_file = st.file_uploader("Vyberte PDF súbor", type=["pdf"])
+uploaded_file = st.file_uploader("Vyberte dokument (PDF, DOCX)", type=["pdf", "docx"])
 
 if 'extracted_data' not in st.session_state:
     st.session_state.extracted_data = []
 
-if uploaded_file is not None and st.button("Spracovať PDF"):
+if uploaded_file is not None and st.button("Spracovať dokument"):
     progress_bar = st.progress(0)
-    with st.spinner("Spracovávam PDF. Toto môže chvíľku trvať..."):
+    with st.spinner("Spracovávam dokument. Toto môže chvíľku trvať..."):
         file_bytes = uploaded_file.read()
-        extracted_items = asyncio.run(process_pdf_workflow(file_bytes, progress_bar))
+        file_ext = uploaded_file.name.split('.')[-1].lower()
+        extracted_items = asyncio.run(process_pdf_workflow(file_bytes, progress_bar, file_ext))
         
         for item in extracted_items:
             item["Schváliť"] = False
