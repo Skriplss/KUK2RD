@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.utils.logger import get_logger
 from src.core.database import get_db, KnowledgeObject
-from src.services.parser import PDFParser
+from src.services.parser import DocumentParser
 from src.services.interpreter import extract_knowledge_from_chunk
 
 logger = get_logger(__name__)
@@ -15,11 +15,11 @@ async def upload_document(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Uploads a PDF document, extracts text, chunks it,
+    Uploads a PDF or DOCX document, extracts text, chunks it,
     runs it through the LLM, and stores KnowledgeObjects into the database.
     """
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+    if not (file.filename.endswith(".pdf") or file.filename.endswith(".docx")):
+        raise HTTPException(status_code=400, detail="Only PDF and DOCX files are supported.")
         
     logger.info(f"Received file for processing: {file.filename}")
     
@@ -27,11 +27,14 @@ async def upload_document(
         # 1. Read file into memory
         file_bytes = await file.read()
         
-        # 2. Parse PDF
-        text = PDFParser.extract_text_from_pdf(file_bytes)
+        # 2. Parse Document
+        if file.filename.endswith(".pdf"):
+            text = DocumentParser.extract_text_from_pdf(file_bytes)
+        else:
+            text = DocumentParser.extract_text_from_docx(file_bytes)
         
         # 3. Segment Text
-        chunks = PDFParser.chunk_text(text)
+        chunks = DocumentParser.chunk_text(text)
         logger.info(f"Document segmented into {len(chunks)} chunks.")
         
         extracted_objects_count = 0
