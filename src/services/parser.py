@@ -1,10 +1,12 @@
 import fitz
+import docx
+import io
 from typing import List
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-class PDFParser:
+class DocumentParser:
     @staticmethod
     def extract_text_from_pdf(file_bytes: bytes) -> str:
         """Extracts text from a PDF file using PyMuPDF."""
@@ -18,6 +20,20 @@ class PDFParser:
             return text
         except Exception as e:
             logger.error(f"Error extracting text from PDF: {e}")
+            raise
+
+    @staticmethod
+    def extract_text_from_docx(file_bytes: bytes) -> str:
+        """Extracts text from a DOCX file using python-docx."""
+        logger.info("Extracting text from DOCX...")
+        text = ""
+        try:
+            doc = docx.Document(io.BytesIO(file_bytes))
+            for para in doc.paragraphs:
+                text += para.text + "\n\n"
+            return text
+        except Exception as e:
+            logger.error(f"Error extracting text from DOCX: {e}")
             raise
 
     @staticmethod
