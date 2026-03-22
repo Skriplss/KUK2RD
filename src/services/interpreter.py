@@ -26,7 +26,7 @@ async def extract_knowledge_from_chunk(chunk_text: str) -> List[Dict[str, Any]]:
     logger.info("Sending text chunk to OpenAI for extraction...")
     try:
         response = await client.beta.chat.completions.parse(
-            model="gpt-4o",
+            model="gpt-5-nano",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Extract objects from this text:\n\n{chunk_text}"}
