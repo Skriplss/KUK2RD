@@ -1,10 +1,10 @@
 version: '3.8'
 
 services:
-  app:
+  api:
     build: .
     ports:
-      - "8501:8501"
+      - "8502:8000"
     volumes:
       - .:/app
     env_file:
@@ -13,6 +13,20 @@ services:
       - PYTHONPATH=/app
     depends_on:
       - db
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  app:
+    build: .
+    ports:
+      - "8500:8501"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - api
     command: ["streamlit", "run", "dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
 
   db:
@@ -20,7 +34,7 @@ services:
     env_file:
       - .env
     ports:
-      - "5432:5432"
+      - "8501:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
