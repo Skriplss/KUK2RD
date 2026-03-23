@@ -22,6 +22,17 @@ def run_async(coro):
 st.set_page_config(page_title="KUK2RD Dashboard", layout="wide")
 st.title("KUK2RD - Curator Dashboard")
 
+def safe_dict(val) -> dict:
+    if isinstance(val, dict):
+        return val
+    if isinstance(val, str):
+        try:
+            result = json.loads(val)
+            return result if isinstance(result, dict) else {}
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    return {}
+
 @st.cache_resource
 def setup_db():
     if "db_initialized" not in st.session_state:
@@ -111,18 +122,19 @@ with tab_review:
                 continue
                 
             with st.expander(f"[{obj.category}] ID: {obj.id}", expanded=False):
-                metadata = obj.data.get("metadata", {})
+                data_dict = safe_dict(obj.data)
+                metadata = safe_dict(data_dict.get("metadata", {}))
                 source = metadata.get("source_file", "Neznámy zdrojový súbor")
                 chunk_index = metadata.get("source_chunk_idx", "N/A")
-                source_text = metadata.get("source_text", "⚠️ Textový kontext nebol uložený pre tento starší objekt.")
+                source_text = metadata.get("source_text", "Textový kontext nebol uložený pre tento starší objekt.")
                 
                 st.caption(f"Zdrojový súbor: **{source}** (Segment textu: #{chunk_index})")
                 
                 s1, s2 = st.columns([1.2, 1])
                 
                 with s1:
-                    st.write("**📝 Parametre a Extrakcia (Možnosť editácie):**")
-                    df_data = pd.DataFrame([obj.data])
+                    st.write("**Parametre a Extrakcia (Možnosť editácie):**")
+                    df_data = pd.DataFrame([data_dict])
                     
                     edited_df = st.data_editor(
                         df_data,
@@ -191,13 +203,15 @@ with tab_database:
             # Flatten data for a beautiful table
             flat_data = []
             for obj in approved_objs:
+                data_dict = safe_dict(obj.data)
+                metadata = safe_dict(data_dict.get("metadata", {}))
                 row = {
                     "ID": obj.id,
                     "Kategória": obj.category,
-                    "Originálny názov": obj.data.get("original_name", ""),
-                    "Názov (EN)": obj.data.get("name_en", ""),
-                    "Popis": obj.data.get("description", ""),
-                    "Zdroj": obj.data.get("metadata", {}).get("source_file", "")
+                    "Originálny názov": data_dict.get("original_name", ""),
+                    "Názov (EN)": data_dict.get("name_en", ""),
+                    "Popis": data_dict.get("description", ""),
+                    "Zdroj": metadata.get("source_file", "")
                 }
                 
                 # Apply Filters
