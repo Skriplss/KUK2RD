@@ -2,9 +2,9 @@ import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    groq_api_key: str = os.getenv("GROQ_API_KEY", "")
     database_url: str = os.getenv(
-        "DATABASE_URL", 
+        "DATABASE_URL",
         "postgresql+asyncpg://postgres:postgres@localhost:5432/kuk2rd"
     )
     

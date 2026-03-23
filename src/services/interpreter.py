@@ -1,13 +1,22 @@
-from openai import AsyncOpenAI
+from groq import AsyncGroq
 from typing import List, Dict, Any
 from src.core.models import ExtractionResult
 from src.core.config import settings
 from src.utils.logger import get_logger
+import json
 
 logger = get_logger(__name__)
 
-# Initialize AsyncOpenAI client
-client = AsyncOpenAI(api_key=settings.openai_api_key)
+# Initialize Groq async client
+if settings.groq_api_key:
+    masked_key = f"{settings.groq_api_key[:8]}...{settings.groq_api_key[-4:]}"
+    logger.info(f"Groq Client initialized with key: {masked_key} (Length: {len(settings.groq_api_key)})")
+else:
+    logger.warning("Groq Client initialized WITHOUT an API key!")
+
+client = AsyncGroq(api_key=settings.groq_api_key)
+
+MODEL = "llama-3.3-70b-versatile"
 
 system_prompt = """
 You are a senior technical extractor for the rubber industry.
@@ -17,30 +26,53 @@ You must always output data in English. Original names can be kept natively in t
 Possible categories are: RawMaterial, Process, Manufacturer, Product, Intermediate, Equipment.
 
 Be precise. If a category doesn't fit exactly, ignore the object or try to pick the most suitable.
+
+IMPORTANT: You MUST respond with a valid JSON object in this exact format:
+{
+  "items": [
+    {
+      "category": "RawMaterial",
+      "name_en": "...",
+      "original_name": "...",
+      "description": "...",
+      "properties": {},
+      "metadata": {},
+      "chemical_composition": "...",
+      "supplier": "..."
+    }
+  ]
+}
+Only include fields relevant to the category. The 'items' array may be empty if no objects are found.
 """
 
 async def extract_knowledge_from_chunk(chunk_text: str) -> List[Dict[str, Any]]:
-    """
-    Sends a text chunk to OpenAI GPT-4o with structured output to extract knowledge objects.
-    """
-    logger.info("Sending text chunk to OpenAI for extraction...")
+    logger.info(f"Sending text chunk to Groq ({MODEL}) for extraction...")
     try:
-        response = await client.beta.chat.completions.parse(
-            model="gpt-5-nano",
+        response = await client.chat.completions.create(
+            model=MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Extract objects from this text:\n\n{chunk_text}"}
             ],
-            response_format=ExtractionResult,
+            response_format={"type": "json_object"},
             temperature=0.0
         )
-        
-        parsed_result: ExtractionResult = response.choices[0].message.parsed
-        if parsed_result is None:
+
+        content = response.choices[0].message.content
+        if not content:
+            logger.warning("Groq returned empty content.")
             return []
-            
-        return [item.model_dump() for item in parsed_result.items]
+
+        # Parse the raw JSON using our Pydantic model for validation
+        raw_data = json.loads(content)
+        parsed_result = ExtractionResult.model_validate(raw_data)
         
+        logger.info(f"Groq extracted {len(parsed_result.items)} objects.")
+        return [item.model_dump() for item in parsed_result.items]
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Groq returned invalid JSON: {e}")
+        return []
     except Exception as e:
-        logger.error(f"Error during OpenAI extraction: {e}")
+        logger.error(f"Error during Groq extraction: {e}")
         return []
