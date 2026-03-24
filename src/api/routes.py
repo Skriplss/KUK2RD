@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.utils.logger import get_logger
 from src.core.database import get_db, KnowledgeObject
@@ -88,6 +88,15 @@ async def upload_document(
         logger.error(f"Error processing document {file.filename}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/rejected")
+async def delete_rejected_objects(db: AsyncSession = Depends(get_db)):
+    count_result = await db.execute(
+        select(func.count()).select_from(KnowledgeObject).where(KnowledgeObject.status == "REJECTED")
+    )
+    count = count_result.scalar() or 0
+    await db.execute(delete(KnowledgeObject).where(KnowledgeObject.status == "REJECTED"))
+    await db.commit()
+    return {"deleted": count}
 
 @router.post("/preview")
 async def preview_document(file: UploadFile = File(...)):
