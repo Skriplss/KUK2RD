@@ -87,3 +87,27 @@ async def upload_document(
     except Exception as e:
         logger.error(f"Error processing document {file.filename}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/preview")
+async def preview_document(file: UploadFile = File(...)):
+    if not (file.filename.endswith(".pdf") or file.filename.endswith(".docx")):
+        raise HTTPException(status_code=400, detail="Only PDF and DOCX files are supported.")
+
+    logger.info(f"Preview request for: {file.filename}")
+    try:
+        file_bytes = await file.read()
+        if file.filename.endswith(".pdf"):
+            text = DocumentParser.extract_text_from_pdf(file_bytes)
+        else:
+            text = DocumentParser.extract_text_from_docx(file_bytes)
+
+        chunks = DocumentParser.chunk_text(text)
+        return {
+            "filename": file.filename,
+            "chunks_count": len(chunks),
+            "chunks": chunks,
+        }
+    except Exception as e:
+        logger.error(f"Error previewing document {file.filename}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
