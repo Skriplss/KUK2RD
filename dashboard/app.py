@@ -23,9 +23,9 @@ CATEGORY_COLORS: dict[str, str] = {
 }
 
 def category_badge(category: str) -> str:
-    color = CATEGORY_COLORS.get(category, "#9E9E9E")
+    color_badge = CATEGORY_COLORS.get(category, "#9E9E9E")
     return (
-        f'<span style="background:{color};color:white;padding:2px 10px;'
+        f'<span style="background:{color_badge};color:white;padding:2px 10px;'
         f'border-radius:12px;font-size:0.78em;font-weight:600;">{category}</span>'
     )
 
@@ -241,7 +241,7 @@ with tab_review:
             source_txt = metadata.get("source_text", "Textový kontext nebol uložený.")
             name_en    = data_dict.get("name_en", f"ID {obj.id}")
 
-            # Colored category badge in expander header
+            # Colored category badge in the expander header
             header_html = f"{name_en} &nbsp; {category_badge(obj.category)}"
             with st.expander(f"ID {obj.id} — {name_en} [{obj.category}]", expanded=False):
                 st.markdown(header_html, unsafe_allow_html=True)
