@@ -121,7 +121,7 @@ tab_upload, tab_review, tab_database = st.tabs([
 with tab_upload:
     st.write("Nahrajte PDF alebo DOCX súbory. Systém ich postupne spracuje a extrahuje znalostné objekty.")
 
-    uploaded_files = st.file_uploader(
+    uploaded_files: list = st.file_uploader(
         "Vyberte jeden alebo viac dokumentov",
         type=["pdf", "docx"],
         accept_multiple_files=True
@@ -314,6 +314,12 @@ with tab_database:
                 mime="application/json",
                 use_container_width=True
             )
+            st.write("")
+            if st.button("Vymazať zamietnuté", use_container_width=True):
+                resp = requests.delete("http://api:8000/rejected")
+                if resp.status_code == 200:
+                    st.toast(f"Vymazaných: {resp.json()['deleted']} objektov", icon="🗑️")
+                    st.rerun()
 
         with col2:
             f_col1, f_col2 = st.columns(2)
