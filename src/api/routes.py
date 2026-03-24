@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.utils.logger import get_logger
 from src.core.database import get_db, KnowledgeObject
@@ -51,16 +52,28 @@ async def upload_document(
                 obj["metadata"]["source_file"] = file.filename
                 obj["metadata"]["source_chunk_idx"] = idx
                 obj["metadata"]["source_text"] = chunk
-                
-                # Create Database entity
+
+                # Deduplication: skip if name_en+category already exists
+                name_en = obj.get("name_en", "")
+                category = obj.get("category", "")
+                existing = await db.execute(
+                    select(KnowledgeObject).where(
+                        KnowledgeObject.category == category,
+                        KnowledgeObject.data["name_en"].as_string() == name_en
+                    ).limit(1)
+                )
+                if existing.scalars().first() is not None:
+                    logger.info(f"Skipping duplicate: [{category}] {name_en}")
+                    continue
+
                 db_obj = KnowledgeObject(
-                    category=obj.get("category", "Unknown"),
+                    category=category,
                     data=obj,
                     status="PENDING"
                 )
                 db.add(db_obj)
                 extracted_objects_count += 1
-                
+
         # Commit all to DB
         await db.commit()
         
