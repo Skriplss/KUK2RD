@@ -119,46 +119,92 @@ tab_upload, tab_review, tab_database = st.tabs([
 # TAB 1 — Upload
 # ══════════════════════════════════════════════════════════════════════════
 with tab_upload:
-    st.write("Nahrajte PDF alebo DOCX. Systém automaticky extrahuje znalostné objekty cez AI.")
-    uploaded_file = st.file_uploader("Vyberte dokument", type=["pdf", "docx"])
+    st.write("Nahrajte PDF alebo DOCX súbory. Systém ich postupne spracuje a extrahuje znalostné objekty.")
 
-    if uploaded_file is not None and st.button("Spustiť AI extrakciu", type="primary"):
-        progress = st.progress(0, text="Príprava súboru...")
-        status_box = st.empty()
+    uploaded_files = st.file_uploader(
+        "Vyberte jeden alebo viac dokumentov",
+        type=["pdf", "docx"],
+        accept_multiple_files=True
+    )
 
-        try:
-            progress.progress(15, text="Odosielanie na API...")
-            time.sleep(0.3)
+    if uploaded_files:
+        st.info(f"Vybrané súbory: **{len(uploaded_files)}**")
 
-            files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/octet-stream")}
+        # ── OCR Preview ────────────────────────────────────────────────
+        with st.expander("👁️ Predprosessor — náhľad OCR textu (voliteľné)", expanded=False):
+            preview_file = st.selectbox(
+                "Vyberte súbor na náhľad:",
+                options=[f.name for f in uploaded_files],
+                key="preview_select"
+            )
+            if st.button("Zobraziť rozpoznaný text (OCR Preview)", key="btn_preview"):
+                target = next(f for f in uploaded_files if f.name == preview_file)
+                with st.spinner("Spúšťam OCR parser..."):
+                    try:
+                        resp = requests.post(
+                            "http://api:8000/preview",
+                            files={"file": (target.name, target.getvalue(), "application/octet-stream")}
+                        )
+                        if resp.status_code == 200:
+                            pdata = resp.json()
+                            st.success(f"Rozpoznaných segmentov: **{pdata['chunks_count']}**")
+                            for i, chunk in enumerate(pdata["chunks"]):
+                                st.text_area(
+                                    f"Segment {i+1}",
+                                    value=chunk,
+                                    height=200,
+                                    key=f"chunk_prev_{i}",
+                                    disabled=True
+                                )
+                        else:
+                            st.error(f"Chyba API: {resp.text}")
+                    except Exception as e:
+                        st.error(f"Chyba: {e}")
 
-            progress.progress(35, text="API spracováva dokument (OCR / parsing)...")
-            response = requests.post("http://api:8000/upload", files=files)
+        st.write("---")
 
-            progress.progress(80, text="Ukladanie výsledkov do databázy...")
-            time.sleep(0.3)
+        # ── Batch extraction ────────────────────────────────────────────
+        if st.button("🚀 Spustiť AI extrakciu pre všetky súbory", type="primary"):
+            overall_bar   = st.progress(0, text="Inicializácia...")
+            results_table = []
 
-            if response.status_code == 200:
-                data = response.json()
-                progress.progress(100, text="Hotovo!")
-                time.sleep(0.4)
-                progress.empty()
-                status_box.success(
-                    f"**Extrakcia úspešná!** "
-                    f"Z **{data.get('chunks_processed')}** segmentov → "
-                    f"**{data.get('objects_extracted')}** nových objektov."
-                )
-                st.info("Prejdite na kartu 'Prehľad (Kurátor)' pre kontrolu návrhov.")
-            else:
-                progress.empty()
-                status_box.error(f"Chyba na serveri: {response.text}")
+            for file_idx, ufile in enumerate(uploaded_files):
+                fname = ufile.name
+                step_pct = int((file_idx / len(uploaded_files)) * 100)
+                overall_bar.progress(step_pct, text=f"Spracovávam {file_idx+1}/{len(uploaded_files)}: **{fname}**")
 
-        except requests.exceptions.ConnectionError:
-            progress.empty()
-            status_box.error("Nepodarilo sa spojiť s API (port 8000).")
-        except Exception as e:
-            progress.empty()
-            status_box.error(f"Neočakávaná chyba: {e}")
+                file_status = st.empty()
+                file_status.info(f"⏳ `{fname}` — odosielanie na API...")
+
+                try:
+                    resp = requests.post(
+                        "http://api:8000/upload",
+                        files={"file": (fname, ufile.getvalue(), "application/octet-stream")}
+                    )
+                    if resp.status_code == 200:
+                        d = resp.json()
+                        file_status.success(
+                            f"✅ `{fname}` — "
+                            f"{d['chunks_processed']} segmentov → **{d['objects_extracted']} nových objektov**"
+                        )
+                        results_table.append({
+                            "Súbor": fname,
+                            "Segmenty": d["chunks_processed"],
+                            "Nové objekty": d["objects_extracted"],
+                            "Stav": "✅ OK"
+                        })
+                    else:
+                        file_status.error(f"❌ `{fname}` — Chyba: {resp.text[:120]}")
+                        results_table.append({"Súbor": fname, "Segmenty": "-", "Nové objekty": "-", "Stav": "❌ Chyba"})
+                except Exception as e:
+                    file_status.error(f"❌ `{fname}` — {e}")
+                    results_table.append({"Súbor": fname, "Segmenty": "-", "Nové objekty": "-", "Stav": "❌ Výnimka"})
+
+            overall_bar.progress(100, text="Všetky súbory spracované!")
+            st.write("### Súhrn dávky")
+            st.dataframe(pd.DataFrame(results_table), use_container_width=True, hide_index=True)
+            st.info("Prejdite na kartu 'Prehľad (Kurátor)' pre kontrolu nových návrhov.")
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # TAB 2 — Curator Review
