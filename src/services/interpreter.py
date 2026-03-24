@@ -47,6 +47,7 @@ Only include fields relevant to the category. The 'items' array may be empty if 
 
 async def extract_knowledge_from_chunk(chunk_text: str) -> List[Dict[str, Any]]:
     logger.info(f"Sending text chunk to Groq ({MODEL}) for extraction...")
+    logger.debug(f"Chunk preview (first 500 chars):\n{chunk_text[:500]}")
     try:
         response = await client.chat.completions.create(
             model=MODEL,
