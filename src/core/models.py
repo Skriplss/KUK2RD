@@ -7,6 +7,8 @@ class BaseKnowledgeObject(BaseModel):
     description: Optional[str] = Field(default=None, description="Detailed description")
     properties: Dict[str, Any] = Field(default_factory=dict, description="Generic properties as key-value pairs")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadata such as source, source_chunk, etc.")
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Extraction confidence score 0.0-1.0")
+    evidence: str = Field(default="", description="Text snippet supporting this extraction")
 
 class RawMaterial(BaseKnowledgeObject):
     category: Literal["RawMaterial"] = "RawMaterial"
