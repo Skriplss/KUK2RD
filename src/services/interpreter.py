@@ -38,10 +38,23 @@ IMPORTANT: You MUST respond with a valid JSON object in this exact format:
       "properties": {},
       "metadata": {},
       "chemical_composition": "...",
-      "supplier": "..."
+      "supplier": "...",
+      "confidence": 0.95,
+      "evidence": "exact text snippet from source that supports this extraction"
     }
   ]
 }
+
+CONFIDENCE SCORING:
+- confidence: float 0.0-1.0 indicating extraction certainty
+  * 0.9-1.0: Explicit mention with clear context (e.g., "Zinc oxide (ZnO) is used as...")
+  * 0.7-0.9: Strong inference from context (e.g., "ZnO improves..." without full name)
+  * 0.5-0.7: Weak inference or ambiguous mention
+  * 0.0-0.5: Very uncertain, possibly incorrect
+
+- evidence: Copy the exact text snippet (max 200 chars) that supports this extraction.
+  This will be used for human review of low-confidence items.
+
 Only include fields relevant to the category. The 'items' array may be empty if no objects are found.
 """
 
